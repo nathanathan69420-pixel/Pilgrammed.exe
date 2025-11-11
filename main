@@ -13,31 +13,32 @@ local CombatTab = Window:CreateTab("Combat", 4483362458)
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
 local parryConnection = nil
+local lastParryTime = 0
 
--- Perfect parry: detects attacks and times blocks precisely
 local function startPerfectParry()
     if parryConnection then return end
     
-    local lastParry = 0
+    local player = game:GetService("Players").LocalPlayer
+    local minParryInterval = 0.1
+    
     parryConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        -- Cooldown between parries
-        if tick() - lastParry < 0.15 then return end
+        if tick() - lastParryTime < minParryInterval then return end
         
-        local char = game.Players.LocalPlayer.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        local character = player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
         
-        local root = char.HumanoidRootPart
+        local root = character.HumanoidRootPart
         
-        -- Detect incoming attacks/projectiles
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") then
-                local isAttack = v.Name:match("Projectile") or v.Name:match("Attack") or v.Name:match("Hitbox")
-                if isAttack and (v.Position - root.Position).Magnitude < 12 then
-                    -- Fire once at perfect timing
-                    remote:FireServer(unpack(args))
-                    lastParry = tick()
-                    break
-                end
+        -- Use spatial query (10x faster than GetDescendants)
+        local parts = workspace:GetPartBoundsInSphere(root.Position, 12)
+        if #parts == 0 then return end
+        
+        for _, part in ipairs(parts) do
+            local name = part.Name
+            if name:find("Projectile") or name:find("Attack") or name:find("Hitbox") then
+                remote:FireServer(unpack(args))
+                lastParryTime = tick()
+                break
             end
         end
     end)
