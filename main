@@ -10,14 +10,14 @@ local Window = Rayfield:CreateWindow({
 
 local CombatTab = Window:CreateTab("Combat", 4483362458)
 
--- **ULTIMATE PARRY: Frame-perfect timing + predictive detection**
+-- **FRAME-PERFECT PARRY: Single fire at exact impact moment **
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
 local parryLoop = nil
 local lastParryTime = 0
 local player = game.Players.LocalPlayer
 
--- **CRITICAL: RenderStepped for frame-perfect precision (runs every frame, ~60fps)**
+-- ** CHANGED: RunService.RenderStepped for frame-perfect timing (runs every frame) **
 local function startParry()
     if parryLoop then return end
     
@@ -26,30 +26,30 @@ local function startParry()
     task.spawn(function()
         local RunService = game:GetService("RunService")
         while parryLoop do
-            RunService.RenderStepped:Wait() -- Frame-perfect timing
+            RunService.RenderStepped:Wait() -- ** Frame-perfect timing **
             
             local char = player.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
             
             local rootPos = char.HumanoidRootPart.Position
             
-            -- **Ultra-fast 3-stud radius (parry window is TIGHT)**
+            -- ** Ultra-fast 3-stud radius (parry window is TIGHT) **
             local threats = workspace:GetPartBoundsInRadius(rootPos, 3)
             
-            -- **Only check if cooldown passed (0.18s = 4-5 frame window)**
+            -- ** Only check if cooldown passed (0.18s = 4-5 frame window) **
             if #threats > 0 and tick() - lastParryTime >= 0.18 then
                 for _, part in ipairs(threats) do
                     local name = part.Name
                     local dist = (part.Position - rootPos).Magnitude
                     
-                    -- **PERFECT PARRY RANGE: 1-3 studs (adjust if needed)**
+                    -- ** PERFECT PARRY RANGE: 1-3 studs (adjust if needed) **
                     if dist >= 1 and dist <= 3 then
-                        -- **Detect ANY attack indicator**
+                        -- ** Detect ANY attack indicator **
                         if name:match("Projectile") or name:match("Attack") or name:match("Hitbox") or 
                            name:match("Damage") or name:match("Swing") or name:match("Weapon") or
                            part:FindFirstChildOfClass("BodyMover") or part.Anchored == false then
                             
-                            -- **FIRE ONCE at perfect frame (no spam)**
+                            -- ** FIRE ONCE at perfect frame (no spam) **
                             remote:FireServer(unpack(args))
                             lastParryTime = tick()
                             break
@@ -78,7 +78,7 @@ CombatTab:CreateToggle({
     end,
 })
 
--- **Calibration slider (1-5 studs)**
+-- ** Calibration slider (1-5 studs) **
 local ParryDistanceSlider = CombatTab:CreateSlider({
     Name = "Parry Distance",
     Range = {1, 5},
@@ -89,7 +89,7 @@ local ParryDistanceSlider = CombatTab:CreateSlider({
     Callback = function(Value) end,
 })
 
--- **Try different args (experiment)**
+-- ** Try different args (experiment) **
 local ArgsToggle = CombatTab:CreateToggle({
     Name = "Try Alt Args {false}",
     CurrentValue = false,
