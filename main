@@ -15,27 +15,32 @@ local args = {true}
 local connection = nil
 local isActive = false
 
+-- Ultra-aggressive coroutine spam (no detection, max speed)
 local function startSpam()
     if isActive then return end
     isActive = true
     
-    -- Ultra-fast: fires 5 times per heartbeat (~300/sec)
-    connection = game:GetService("RunService").Heartbeat:Connect(function()
-        if not isActive then return end
-        remote:FireServer(unpack(args))
-        remote:FireServer(unpack(args))
-        remote:FireServer(unpack(args))
-        remote:FireServer(unpack(args))
-        remote:FireServer(unpack(args))
-    end)
+    local function spamBurst()
+        while isActive do
+            -- Fire 4 times with tiny delays between
+            for i = 1, 4 do
+                remote:FireServer(unpack(args))
+                task.wait(0.008) -- 8ms between fires
+            end
+            
+            -- Short 20ms gap between bursts
+            task.wait(0.02)
+        end
+    end
+    
+    -- Start 3 parallel loops for maximum coverage
+    for i = 1, 3 do
+        task.spawn(spamBurst)
+    end
 end
 
 local function stopSpam()
     isActive = false
-    if connection then
-        connection:Disconnect()
-        connection = nil
-    end
 end
 
 CombatTab:CreateToggle({
