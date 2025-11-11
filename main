@@ -21,14 +21,16 @@ local connection
 local function startSpamming()
     if connection then return end
     connection = game:GetService("RunService").Heartbeat:Connect(function()
+        -- Aggressive burst: fire 4 times with minimal delay for "perfect" parry coverage
         remote:FireServer(unpack(args))
-        task.wait(0.01)
+        task.wait(0.005)
         remote:FireServer(unpack(args))
-        task.wait(0.01)
+        task.wait(0.005)
         remote:FireServer(unpack(args))
-        task.wait(0.01)
+        task.wait(0.005)
         remote:FireServer(unpack(args))
-        task.wait(0.1)
+        -- Short gap between bursts (still spamming but with structure)
+        task.wait(0.02)
     end)
 end
 
