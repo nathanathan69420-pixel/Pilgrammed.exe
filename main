@@ -4,11 +4,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Pilgrammed.exe",
     LoadingTitle = "Pilgrammed.exe",
     LoadingSubtitle = "Like and subscribe",
-    ConfigurationSaving = {
-        Enabled = false,
-        FolderName = nil,
-        FileName = nil
-    },
+    ConfigurationSaving = {Enabled = false},
     KeySystem = false,
 })
 
@@ -16,48 +12,31 @@ local CombatTab = Window:CreateTab("Combat", 4483362458)
 
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
-local connection
+local parryConnection = nil
 
-local function startSpamming()
-    if connection then return end
-    connection = game:GetService("RunService").Heartbeat:Connect(function()
-        -- Aggressive burst: fire 4 times with minimal delay for "perfect" parry coverage
-        remote:FireServer(unpack(args))
-        task.wait(0.005)
-        remote:FireServer(unpack(args))
-        task.wait(0.005)
-        remote:FireServer(unpack(args))
-        task.wait(0.005)
-        remote:FireServer(unpack(args))
-        -- Short gap between bursts (still spamming but with structure)
-        task.wait(0.02)
-    end)
-end
-
-local function stopSpamming()
-    if connection then
-        connection:Disconnect()
-        connection = nil
-    end
-end
-
-local AutoParryToggle = CombatTab:CreateToggle({
-    Name = "Auto Parry",
-    CurrentValue = false,
-    Flag = "AutoParry",
-    Callback = function(Value)
-        if Value then
-            startSpamming()
-        else
-            stopSpamming()
+-- Perfect parry: detects attacks and times blocks precisely
+local function startPerfectParry()
+    if parryConnection then return end
+    
+    local lastParry = 0
+    parryConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        -- Cooldown between parries
+        if tick() - lastParry < 0.15 then return end
+        
+        local char = game.Players.LocalPlayer.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        
+        local root = char.HumanoidRootPart
+        
+        -- Detect incoming attacks/projectiles
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") then
+                local isAttack = v.Name:match("Projectile") or v.Name:match("Attack") or v.Name:match("Hitbox")
+                if isAttack and (v.Position - root.Position).Magnitude < 12 then
+                    -- Fire once at perfect timing
+                    remote:FireServer(unpack(args))
+                    lastParry = tick()
+                    break
+                end
+            end
         end
-    end,
-})
-
-local UserInputService = game:GetService("UserInputService")
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.K then
-        Rayfield:Toggle()
-    end
-end)
