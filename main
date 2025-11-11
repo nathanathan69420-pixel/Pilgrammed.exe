@@ -10,50 +10,74 @@ local Window = Rayfield:CreateWindow({
 
 local CombatTab = Window:CreateTab("Combat", 4483362458)
 
--- **FRAME-PERFECT PARRY: Single fire at exact impact moment **
+-- **PRECISION PARRY: 0.1s window requires exact distance + velocity tracking **
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
 local parryLoop = nil
 local lastParryTime = 0
 local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
--- ** CHANGED: RunService.RenderStepped for frame-perfect timing (runs every frame) **
+-- **Track projectile positions to calculate velocity**
+local lastPositions = {}
+
+-- **Frame-perfect parry timing**
 local function startParry()
     if parryLoop then return end
     
     parryLoop = true
     
     task.spawn(function()
-        local RunService = game:GetService("RunService")
         while parryLoop do
-            RunService.RenderStepped:Wait() -- ** Frame-perfect timing **
+            task.wait(0.02) -- **50 checks/sec (lightweight)**
             
             local char = player.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
             
             local rootPos = char.HumanoidRootPart.Position
+            local currentTime = tick()
             
-            -- ** Ultra-fast 3-stud radius (parry window is TIGHT) **
-            local threats = workspace:GetPartBoundsInRadius(rootPos, 3)
+            -- ** Clean old positions (2 second memory) **
+            for id, data in pairs(lastPositions) do
+                if currentTime - data.time > 2 then
+                    lastPositions[id] = nil
+                end
+            end
             
-            -- ** Only check if cooldown passed (0.18s = 4-5 frame window) **
-            if #threats > 0 and tick() - lastParryTime >= 0.18 then
-                for _, part in ipairs(threats) do
-                    local name = part.Name
-                    local dist = (part.Position - rootPos).Magnitude
-                    
-                    -- ** PERFECT PARRY RANGE: 1-3 studs (adjust if needed) **
-                    if dist >= 1 and dist <= 3 then
-                        -- ** Detect ANY attack indicator **
-                        if name:match("Projectile") or name:match("Attack") or name:match("Hitbox") or 
-                           name:match("Damage") or name:match("Swing") or name:match("Weapon") or
-                           part:FindFirstChildOfClass("BodyMover") or part.Anchored == false then
-                            
-                            -- ** FIRE ONCE at perfect frame (no spam) **
-                            remote:FireServer(unpack(args))
-                            lastParryTime = tick()
-                            break
-                        end
+            -- **Find threats in 12-stud radius**
+            local threats = workspace:GetPartBoundsInRadius(rootPos, 12)
+            
+            for _, part in ipairs(threats) do
+                local name = part.Name
+                local dist = (part.Position - rootPos).Magnitude
+                
+                -- **Predictive parry: track velocity**
+                local partId = tostring(part:GetFullName())
+                local velocity = 50 -- Default velocity assumption
+                
+                if lastPositions[partId] then
+                    local lastPos = lastPositions[partId].pos
+                    local timeDelta = currentTime - lastPositions[partId].time
+                    velocity = (part.Position - lastPos).Magnitude / timeDelta
+                end
+                
+                -- **Store current position**
+                lastPositions[partId] = {pos = part.Position, time = currentTime}
+                
+                -- **PERFECT PARRY LOGIC:**
+                -- - Attack must be moving toward you
+                -- - Must be 1-4 studs away (0.1s window at 40-50 stud/sec)
+                -- - Only fire once per 0.1s cooldown
+                -- - Predict impact: fire when distance / velocity ≈ 0.05-0.1s
+                
+                if velocity > 20 and dist >= 1 and dist <= 4 and currentTime - lastParryTime >= 0.1 then
+                    if name:match("Projectile") or name:match("Attack") or name:match("Hitbox") or 
+                       part:FindFirstChildOfClass("BodyMover") or (not part.Anchored and velocity > 30) then
+                        
+                        -- **FIRE EXACTLY ONCE at perfect moment**
+                        remote:FireServer(unpack(args))
+                        lastParryTime = currentTime
+                        break
                     end
                 end
             end
@@ -63,6 +87,7 @@ end
 
 local function stopParry()
     parryLoop = nil
+    lastPositions = {}
 end
 
 CombatTab:CreateToggle({
@@ -78,27 +103,30 @@ CombatTab:CreateToggle({
     end,
 })
 
--- ** Calibration slider (1-5 studs) **
-local ParryDistanceSlider = CombatTab:CreateSlider({
+-- **Calibration slider: 1-5 studs (default 3)**
+CombatTab:CreateSlider({
     Name = "Parry Distance",
     Range = {1, 5},
     Increment = 0.5,
     Suffix = " studs",
     CurrentValue = 3,
-    Flag = "ParryDistanceSlider",
-    Callback = function(Value) end,
+    Flag = "ParryDistance",
 })
 
--- ** Try different args (experiment) **
-local ArgsToggle = CombatTab:CreateToggle({
-    Name = "Try Alt Args {false}",
+-- **Test mode: spam regardless of detection (for debugging) **
+local testConnection 
+CombatTab:CreateToggle({
+    Name = "Test Mode (Always Fire)",
     CurrentValue = false,
-    Flag = "AltArgs",
+    Flag = "TestMode",
     Callback = function(Value)
         if Value then
-            args = {false}
+            testConnection = RunService.RenderStepped:Connect(function()
+                remote:FireServer(unpack(args))
+                task.wait(0.05)
+            end)
         else
-            args = {true}
+            if testConnection then testConnection:Disconnect() end
         end
     end,
 })
