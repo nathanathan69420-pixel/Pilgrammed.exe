@@ -13,11 +13,15 @@ local CombatTab = Window:CreateTab("Combat", 4483362458)
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
 local connection = nil
+local isActive = false
 
--- Super aggressive: fires 5 times per frame with zero delays
-local function startSpamming()
-    if connection then return end
+local function startSpam()
+    if isActive then return end
+    isActive = true
+    
+    -- Ultra-fast: fires 5 times per heartbeat (~300/sec)
     connection = game:GetService("RunService").Heartbeat:Connect(function()
+        if not isActive then return end
         remote:FireServer(unpack(args))
         remote:FireServer(unpack(args))
         remote:FireServer(unpack(args))
@@ -26,7 +30,8 @@ local function startSpamming()
     end)
 end
 
-local function stopSpamming()
+local function stopSpam()
+    isActive = false
     if connection then
         connection:Disconnect()
         connection = nil
@@ -39,9 +44,9 @@ CombatTab:CreateToggle({
     Flag = "AutoParry",
     Callback = function(Value)
         if Value then
-            startSpamming()
+            startSpam()
         else
-            stopSpamming()
+            stopSpam()
         end
     end,
 })
