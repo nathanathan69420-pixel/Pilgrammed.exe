@@ -22,9 +22,13 @@ local function startSpamming()
     if connection then return end
     connection = game:GetService("RunService").Heartbeat:Connect(function()
         remote:FireServer(unpack(args))
+        task.wait(0.01)
         remote:FireServer(unpack(args))
+        task.wait(0.01)
         remote:FireServer(unpack(args))
+        task.wait(0.01)
         remote:FireServer(unpack(args))
+        task.wait(0.1)
     end)
 end
 
