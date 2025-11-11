@@ -10,53 +10,50 @@ local Window = Rayfield:CreateWindow({
 
 local CombatTab = Window:CreateTab("Combat", 4483362458)
 
+-- **ULTIMATE PARRY: Frame-perfect timing + predictive detection**
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
 local parryLoop = nil
-local lastParry = 0
+local lastParryTime = 0
 local player = game.Players.LocalPlayer
 
--- **THE KEY: Predictive timing + single burst when attack is in perfect range**
+-- **CRITICAL: RenderStepped for frame-perfect precision (runs every frame, ~60fps)**
 local function startParry()
     if parryLoop then return end
     
     parryLoop = true
     
     task.spawn(function()
+        local RunService = game:GetService("RunService")
         while parryLoop do
-            -- **Critical: 0.03s check (33 times/sec) - fast enough without lag**
-            task.wait(0.03)
+            RunService.RenderStepped:Wait() -- Frame-perfect timing
             
             local char = player.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
             
-            -- **Ultra-fast spatial query: 10 stud radius**
-            local threats = workspace:GetPartBoundsInRadius(char.HumanoidRootPart.Position, 10)
+            local rootPos = char.HumanoidRootPart.Position
             
-            -- **Single burst when threat is 2-5 studs away (perfect parry window)**
-            for _, part in ipairs(threats) do
-                if tick() - lastParry < 0.15 then break end -- Don't spam
-                
-                local dist = (part.Position - char.HumanoidRootPart.Position).Magnitude
-                
-                -- **PERFECT PARRY WINDOW: 2-5 studs**
-                -- This is when you MUST block to parry, not before or after
-                if dist >= 2 and dist <= 5 then
+            -- **Ultra-fast 3-stud radius (parry window is TIGHT)**
+            local threats = workspace:GetPartBoundsInRadius(rootPos, 3)
+            
+            -- **Only check if cooldown passed (0.18s = 4-5 frame window)**
+            if #threats > 0 and tick() - lastParryTime >= 0.18 then
+                for _, part in ipairs(threats) do
                     local name = part.Name
+                    local dist = (part.Position - rootPos).Magnitude
                     
-                    -- **Aggressive pattern matching for attacks**
-                    if name:match("Projectile") or name:match("Attack") or name:match("Hitbox") or 
-                       name:match("Damage") or name:match("Swing") or name:match("Weapon") or
-                       part:FindFirstChild("BodyVelocity") or part:FindFirstChild("BodyGyro") then
-                        
-                        -- **CRITICAL: Fire 3x in 20ms for perfect timing**
-                        for i = 1, 3 do
+                    -- **PERFECT PARRY RANGE: 1-3 studs (adjust if needed)**
+                    if dist >= 1 and dist <= 3 then
+                        -- **Detect ANY attack indicator**
+                        if name:match("Projectile") or name:match("Attack") or name:match("Hitbox") or 
+                           name:match("Damage") or name:match("Swing") or name:match("Weapon") or
+                           part:FindFirstChildOfClass("BodyMover") or part.Anchored == false then
+                            
+                            -- **FIRE ONCE at perfect frame (no spam)**
                             remote:FireServer(unpack(args))
-                            task.wait(0.01) -- 10ms between fires
+                            lastParryTime = tick()
+                            break
                         end
-                        
-                        lastParry = tick()
-                        break -- Exit after burning parry
                     end
                 end
             end
@@ -77,6 +74,31 @@ CombatTab:CreateToggle({
             startParry()
         else
             stopParry()
+        end
+    end,
+})
+
+-- **Calibration slider (1-5 studs)**
+local ParryDistanceSlider = CombatTab:CreateSlider({
+    Name = "Parry Distance",
+    Range = {1, 5},
+    Increment = 0.5,
+    Suffix = " studs",
+    CurrentValue = 3,
+    Flag = "ParryDistanceSlider",
+    Callback = function(Value) end,
+})
+
+-- **Try different args (experiment)**
+local ArgsToggle = CombatTab:CreateToggle({
+    Name = "Try Alt Args {false}",
+    CurrentValue = false,
+    Flag = "AltArgs",
+    Callback = function(Value)
+        if Value then
+            args = {false}
+        else
+            args = {true}
         end
     end,
 })
