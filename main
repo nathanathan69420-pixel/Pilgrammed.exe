@@ -40,3 +40,32 @@ local function startPerfectParry()
                 end
             end
         end
+    end)
+end
+
+local function stopPerfectParry()
+    if parryConnection then
+        parryConnection:Disconnect()
+        parryConnection = nil
+    end
+end
+
+CombatTab:CreateToggle({
+    Name = "Perfect Auto Parry",
+    CurrentValue = false,
+    Flag = "AutoParry",
+    Callback = function(Value)
+        if Value then
+            startPerfectParry()
+        else
+            stopPerfectParry()
+        end
+    end,
+})
+
+game:GetService("UserInputService").InputBegan:Connect(function(input, gP)
+    if gP then return end
+    if input.KeyCode == Enum.KeyCode.K then
+        Rayfield:Toggle()
+    end
+end)
