@@ -12,35 +12,60 @@ local CombatTab = Window:CreateTab("Combat", 4483362458)
 
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
-local connection = nil
-local isActive = false
+local parryLoop = nil
+local lastParry = 0
+local player = game.Players.LocalPlayer
 
--- Ultra-aggressive coroutine spam (no detection, max speed)
-local function startSpam()
-    if isActive then return end
-    isActive = true
+-- **THE KEY: Predictive timing + single burst when attack is in perfect range**
+local function startParry()
+    if parryLoop then return end
     
-    local function spamBurst()
-        while isActive do
-            -- Fire 4 times with tiny delays between
-            for i = 1, 4 do
-                remote:FireServer(unpack(args))
-                task.wait(0.008) -- 8ms between fires
-            end
+    parryLoop = true
+    
+    task.spawn(function()
+        while parryLoop do
+            -- **Critical: 0.03s check (33 times/sec) - fast enough without lag**
+            task.wait(0.03)
             
-            -- Short 20ms gap between bursts
-            task.wait(0.02)
+            local char = player.Character
+            if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
+            
+            -- **Ultra-fast spatial query: 10 stud radius**
+            local threats = workspace:GetPartBoundsInRadius(char.HumanoidRootPart.Position, 10)
+            
+            -- **Single burst when threat is 2-5 studs away (perfect parry window)**
+            for _, part in ipairs(threats) do
+                if tick() - lastParry < 0.15 then break end -- Don't spam
+                
+                local dist = (part.Position - char.HumanoidRootPart.Position).Magnitude
+                
+                -- **PERFECT PARRY WINDOW: 2-5 studs**
+                -- This is when you MUST block to parry, not before or after
+                if dist >= 2 and dist <= 5 then
+                    local name = part.Name
+                    
+                    -- **Aggressive pattern matching for attacks**
+                    if name:match("Projectile") or name:match("Attack") or name:match("Hitbox") or 
+                       name:match("Damage") or name:match("Swing") or name:match("Weapon") or
+                       part:FindFirstChild("BodyVelocity") or part:FindFirstChild("BodyGyro") then
+                        
+                        -- **CRITICAL: Fire 3x in 20ms for perfect timing**
+                        for i = 1, 3 do
+                            remote:FireServer(unpack(args))
+                            task.wait(0.01) -- 10ms between fires
+                        end
+                        
+                        lastParry = tick()
+                        break -- Exit after burning parry
+                    end
+                end
+            end
         end
-    end
-    
-    -- Start 3 parallel loops for maximum coverage
-    for i = 1, 3 do
-        task.spawn(spamBurst)
-    end
+    end)
 end
 
-local function stopSpam()
-    isActive = false
+local function stopParry()
+    parryLoop = nil
 end
 
 CombatTab:CreateToggle({
@@ -49,9 +74,9 @@ CombatTab:CreateToggle({
     Flag = "AutoParry",
     Callback = function(Value)
         if Value then
-            startSpam()
+            startParry()
         else
-            stopSpam()
+            stopParry()
         end
     end,
 })
