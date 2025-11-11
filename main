@@ -19,40 +19,47 @@ local function startPerfectParry()
     if parryConnection then return end
     
     local player = game:GetService("Players").LocalPlayer
-    local minParryInterval = 0.1
+    local checkInterval = 0.08 -- Check ~12 times per second instead of 60
     
-    parryConnection = game:GetService("RunService").Heartbeat:Connect(function()
-        if tick() - lastParryTime < minParryInterval then return end
-        
-        local character = player.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-        
-        local root = character.HumanoidRootPart
-        
-        -- Use spatial query (10x faster than GetDescendants)
-        local parts = workspace:GetPartBoundsInSphere(root.Position, 12)
-        if #parts == 0 then return end
-        
-        for _, part in ipairs(parts) do
-            local name = part.Name
-            if name:find("Projectile") or name:find("Attack") or name:find("Hitbox") then
-                remote:FireServer(unpack(args))
-                lastParryTime = tick()
-                break
+    parryConnection = true
+    task.spawn(function()
+        while parryConnection do
+            if tick() - lastParryTime >= 0.12 then -- Parry every 0.12s max
+                local char = player.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    local rootPos = char.HumanoidRootPart.Position
+                    
+                    -- Fast spatial query in small radius
+                    local parts = workspace:GetPartBoundsInRadius(rootPos, 10)
+                    
+                    -- Early exit if no parts found
+                    if #parts > 0 then
+                        for _, part in ipairs(parts) do
+                            local name = part.Name
+                            if name:find("Projectile") or name:find("Attack") or name:find("Hitbox") or name:find("Damage") then
+                                -- Spam burst when attack detected
+                                for i = 1, 3 do
+                                    remote:FireServer(unpack(args))
+                                end
+                                lastParryTime = tick()
+                                break
+                            end
+                        end
+                    end
+                end
             end
+            
+            task.wait(checkInterval) -- Key optimization: let game breathe
         end
     end)
 end
 
 local function stopPerfectParry()
-    if parryConnection then
-        parryConnection:Disconnect()
-        parryConnection = nil
-    end
+    parryConnection = nil
 end
 
 CombatTab:CreateToggle({
-    Name = "Perfect Auto Parry",
+    Name = "Auto Parry",
     CurrentValue = false,
     Flag = "AutoParry",
     Callback = function(Value)
