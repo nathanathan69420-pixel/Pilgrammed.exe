@@ -1,8 +1,18 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/wally-rblx/LinoriaLib/main/Library.lua"))()
-local Window = Library:CreateWindow("Pilgrammed.exe", Vector2.new(492, 598))
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-local CombatTab = Window:AddTab("Combat")
-local CombatSection = CombatTab:AddLeftGroupbox("Combat Features")
+local Window = Rayfield:CreateWindow({
+    Name = "Pilgrammed.exe",
+    LoadingTitle = "Pilgrammed.exe",
+    LoadingSubtitle = "Like and subscribe",
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = nil,
+        FileName = nil
+    },
+    KeySystem = false,
+})
+
+local CombatTab = Window:CreateTab("Combat", 4483362458)
 
 local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
 local args = {true}
@@ -22,9 +32,10 @@ local function stopSpamming()
     end
 end
 
-CombatSection:AddToggle("AutoParry", {
-    Text = "Auto Parry",
-    Default = false,
+local AutoParryToggle = CombatTab:CreateToggle({
+    Name = "Auto Parry",
+    CurrentValue = false,
+    Flag = "AutoParry",
     Callback = function(Value)
         if Value then
             startSpamming()
@@ -33,3 +44,11 @@ CombatSection:AddToggle("AutoParry", {
         end
     end,
 })
+
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.K then
+        Rayfield:Toggle()
+    end
+end)
