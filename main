@@ -1,0 +1,35 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/wally-rblx/LinoriaLib/main/Library.lua"))()
+local Window = Library:CreateWindow("Pilgrammed.exe", Vector2.new(492, 598))
+
+local CombatTab = Window:AddTab("Combat")
+local CombatSection = CombatTab:AddLeftGroupbox("Combat Features")
+
+local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Block")
+local args = {true}
+local connection
+
+local function startSpamming()
+    if connection then return end
+    connection = game:GetService("RunService").Heartbeat:Connect(function()
+        remote:FireServer(unpack(args))
+    end)
+end
+
+local function stopSpamming()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+end
+
+CombatSection:AddToggle("AutoParry", {
+    Text = "Auto Parry",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            startSpamming()
+        else
+            stopSpamming()
+        end
+    end,
+})
