@@ -15,40 +15,33 @@ local args = {true}
 local parryConnection = nil
 local lastParryTime = 0
 
--- Perfect parry: single fire in precise window (no spam)
+-- Lightweight parry: rapid burst when threat is near
 local function startParry()
     if parryConnection then return end
     
     local player = game.Players.LocalPlayer
-    local perfectWindow = 7 -- Parry when attack is 7 studs away
+    local detectionRadius = 8
     
     parryConnection = task.spawn(function()
         while parryConnection do
-            task.wait(0.04) -- Check 25 times/sec (responsive but light)
+            task.wait(0.08) -- Check ~12 times/sec (lightweight)
             
             local char = player.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
             
             local rootPos = char.HumanoidRootPart.Position
             
-            -- Fast check: any threat within 12 studs
-            local threats = workspace:GetPartBoundsInRadius(rootPos, 12)
+            -- Fast spatial query
+            local parts = workspace:GetPartBoundsInRadius(rootPos, detectionRadius)
             
-            -- Only parry if cooldown passed AND threat detected
-            if #threats > 0 and tick() - lastParryTime >= 0.2 then
-                for _, part in ipairs(threats) do
-                    local name = part.Name
-                    local dist = (part.Position - rootPos).Magnitude
-                    
-                    -- Perfect timing: fire ONCE when in 4-7 stud window
-                    if dist >= 4 and dist <= perfectWindow then
-                        if name:find("Projectile") or name:find("Attack") or name:find("Hitbox") or name:find("Damage") then
-                            remote:FireServer(unpack(args))
-                            lastParryTime = tick()
-                            break
-                        end
-                    end
+            -- If ANY part detected and cooldown passed, fire burst
+            if #parts > 0 and tick() - lastParryTime >= 0.12 then
+                -- 5 rapid fires for perfect parry window
+                for i = 1, 5 do
+                    remote:FireServer(unpack(args))
+                    task.wait(0.006) -- 6ms between fires
                 end
+                lastParryTime = tick()
             end
         end
     end)
