@@ -23,8 +23,8 @@ local function startSpamming()
     connection = game:GetService("RunService").Heartbeat:Connect(function()
         if not isActive then return end
         
-        if tick() - lastParryTime >= 0.1 then
-            for i = 1, 4 do
+        if tick() - lastParryTime >= 0.05 then
+            for i = 1, 5 do
                 remote:FireServer(unpack(args))
                 task.wait(0.01)
             end
