@@ -14,17 +14,22 @@ local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):Wait
 local args = {true}
 local connection = nil
 local isActive = false
+local lastParryTime = 0
 
--- Pure spam: fires 10 times per heartbeat (no detection, max speed)
 local function startSpamming()
     if isActive then return end
     isActive = true
     
     connection = game:GetService("RunService").Heartbeat:Connect(function()
         if not isActive then return end
-        -- Fire 10 times in rapid succession
-        for i = 1, 10 do
-            remote:FireServer(unpack(args))
+        
+        if tick() - lastParryTime >= 0.1 then
+            for i = 1, 4 do
+                remote:FireServer(unpack(args))
+                task.wait(0.01)
+            end
+            
+            lastParryTime = tick()
         end
     end)
 end
